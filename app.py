@@ -1,33 +1,64 @@
-import requests
-from flask import Flask, render_template, redirect, request, url_for
-import tweepy
+import base64
+import hashlib
+import json
+import os
+import re
+import redis
+from requests_oauthlib import OAuth2Session
+from flask import Flask, render_template, redirect, request, session
 import werkzeug
 
 app = Flask(__name__)
 app.config.from_pyfile('settings.py')
+app.secret_key = os.urandom(50)
+
+r = redis.from_url(app.config.get("REDIS_URL"))
+auth_url = "https://twitter.com/i/oauth2/authorize"
+token_url = "https://api.twitter.com/2/oauth2/token"
+
+code_verifier = base64.urlsafe_b64encode(os.urandom(30)).decode("utf-8")
+code_verifier = re.sub("[^a-zA-Z0-9]+", "", code_verifier)
+code_challenge = hashlib.sha256(code_verifier.encode("utf-8")).digest()
+code_challenge = base64.urlsafe_b64encode(code_challenge).decode("utf-8")
+code_challenge = code_challenge.replace("=", "")
 
 app.register_error_handler(404, werkzeug.exceptions.NotFound)
 
 
+def make_token():
+    return OAuth2Session(app.config.get("CLIENT_ID"),
+                         redirect_uri=app.config.get("REDIRECT_URI"),
+                         scope=["tweet.read", "users.read", "follows.read",
+                                "offline.access"])
+
+
 @app.route("/", methods=["GET"])
 def index():
+    app.logger.info(r)
     return render_template("index.html")
 
 
 @app.route("/login")
 def login():
-    redirect_uri = url_for("authorize", _external=True)
-    client_id = app.config.get("TWITTER_CLIENT_ID")
-    client_secret = app.config.get("TWITTER_CLIENT_SECRET")
-    
-    auth = tweepy.OAuth2UserHandler(
-        redirect_uri=redirect_uri, client_id=client_id, 
-        client_secret=client_secret, 
-        scope=["tweet.read users.read follows.read"]
+    global twitter
+    twitter = make_token()
+    authorization_url, state = twitter.authorization_url(
+        auth_url, code_challenge=code_challenge, code_challenge_method="S256"
     )
-    return redirect(auth.get_authorization_url())
+    session["oauth_state"] = state
+    return redirect(authorization_url)
 
 
-@app.route("/authorize", methods=["GET", "POST"])
-def authorize():
-    return "Authorized?"
+@app.route("/oauth/callback", methods=["GET"])
+def callback():
+    code = request.args.get("code")
+    token = twitter.fetch_token(
+        token_url=token_url,
+        client_secret=app.config.get("CLIENT_SECRET"),
+        code_verifier=code_verifier,
+        code=code,
+    )
+    st_token = '"{}"'.format(token)
+    j_token = json.loads(st_token)
+    r.set("token", j_token)
+    return f"{j_token}"

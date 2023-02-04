@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TWITTER_API_KEY = os.getenv("TWITTER_API_KEY")
-TWITTER_API_KEY_SECRET = os.getenv("TWITTER_API_KEY_SECRET")
-TWITTER_CLIENT_ID = os.getenv("TWITTER_CLIENT_ID")
-TWITTER_CLIENT_SECRET = os.getenv("TWITTER_CLIENT_SECRET")
+REDIS_URL = os.getenv("REDIS_URL")
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+REDIRECT_URI = os.getenv("REDIRECT_URI")
