@@ -4,6 +4,7 @@ import json
 import os
 import re
 import redis
+import requests
 from requests_oauthlib import OAuth2Session
 from flask import Flask, render_template, redirect, request, session
 import werkzeug
@@ -30,6 +31,23 @@ def make_token():
                          redirect_uri=app.config.get("REDIRECT_URI"),
                          scope=["tweet.read", "users.read", "follows.read",
                                 "offline.access"])
+
+
+def get_user_details(token):
+    response = requests.request(
+        "GET",
+        "https://api.twitter.com/2/users/me",
+        headers={
+            "Authorization": "Bearer {}".format(token),
+            "Content-Type": "application/json",
+        },
+        params={"user.fields": "id,username"}
+    )
+
+    if response.status_code != 200:
+        return "Request returned an error: {} {}".format(
+            response.status_code, response.content)
+    return response.content
 
 
 @app.route("/", methods=["GET"])
@@ -61,4 +79,6 @@ def callback():
     st_token = '"{}"'.format(token)
     j_token = json.loads(st_token)
     r.set("token", j_token)
-    return f"{j_token}"
+
+    user_details = get_user_details(token["access_token"])
+    return f"{user_details}"
