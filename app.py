@@ -44,10 +44,20 @@ def get_user_details(token):
         params={"user.fields": "id,username"}
     )
 
-    if response.status_code != 200:
-        return "Request returned an error: {} {}".format(
-            response.status_code, response.content)
-    return response.content
+    return response.json()
+
+
+def get_following(user_id, token):
+    response = requests.request(
+        "GET",
+        f"https://api.twitter.com/2/users/{user_id}/following",
+        headers={
+            "Authorization": "Bearer {}".format(token),
+            "Content-Type": "application/json",
+        }
+    )
+
+    return response.json()
 
 
 @app.route("/", methods=["GET"])
@@ -81,4 +91,7 @@ def callback():
     r.set("token", j_token)
 
     user_details = get_user_details(token["access_token"])
+    following = get_following(user_details["data"]["id"],
+                              token["access_token"])
+    app.logger.info(following)
     return f"{user_details}"
