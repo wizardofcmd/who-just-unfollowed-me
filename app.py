@@ -52,6 +52,19 @@ def get_following(user_id, token):
     return response.json()
 
 
+def get_followers(user_id, token):
+    response = requests.request(
+        "GET",
+        f"https://api.twitter.com/2/users/{user_id}/followers",
+        headers={
+            "Authorization": "Bearer {}".format(token),
+            "Content-Type": "application/json",
+        }
+    )
+
+    return response.json()
+
+
 @app.route("/", methods=["GET"])
 def index():
     app.logger.info(r)
@@ -77,6 +90,7 @@ def login():
         code_challenge_method="S256"
     )
     session["oauth_state"] = state
+
     return redirect(authorization_url)
 
 
@@ -97,5 +111,6 @@ def callback():
     user_details = get_user_details(token["access_token"])
     following = get_following(user_details["data"]["id"],
                               token["access_token"])
-    app.logger.info(following)
+    followers = get_followers(user_details["data"]["id"],
+                              token["access_token"])
     return f"{user_details}"
