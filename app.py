@@ -14,14 +14,6 @@ app.config.from_pyfile('settings.py')
 app.secret_key = os.urandom(50)
 
 r = redis.from_url(app.config.get("REDIS_URL"))
-auth_url = "https://twitter.com/i/oauth2/authorize"
-token_url = "https://api.twitter.com/2/oauth2/token"
-
-code_verifier = base64.urlsafe_b64encode(os.urandom(30)).decode("utf-8")
-code_verifier = re.sub("[^a-zA-Z0-9]+", "", code_verifier)
-code_challenge = hashlib.sha256(code_verifier.encode("utf-8")).digest()
-code_challenge = base64.urlsafe_b64encode(code_challenge).decode("utf-8")
-code_challenge = code_challenge.replace("=", "")
 
 app.register_error_handler(404, werkzeug.exceptions.NotFound)
 
@@ -69,9 +61,20 @@ def index():
 @app.route("/login")
 def login():
     global twitter
+    global code_verifier
+
     twitter = make_token()
+
+    code_verifier = base64.urlsafe_b64encode(os.urandom(30)).decode("utf-8")
+    code_verifier = re.sub("[^a-zA-Z0-9]+", "", code_verifier)
+    code_challenge = hashlib.sha256(code_verifier.encode("utf-8")).digest()
+    code_challenge = base64.urlsafe_b64encode(code_challenge).decode("utf-8")
+    code_challenge = code_challenge.replace("=", "")
+
     authorization_url, state = twitter.authorization_url(
-        auth_url, code_challenge=code_challenge, code_challenge_method="S256"
+        "https://twitter.com/i/oauth2/authorize",
+        code_challenge=code_challenge,
+        code_challenge_method="S256"
     )
     session["oauth_state"] = state
     return redirect(authorization_url)
@@ -80,8 +83,9 @@ def login():
 @app.route("/oauth/callback", methods=["GET"])
 def callback():
     code = request.args.get("code")
+
     token = twitter.fetch_token(
-        token_url=token_url,
+        token_url="https://api.twitter.com/2/oauth2/token",
         client_secret=app.config.get("CLIENT_SECRET"),
         code_verifier=code_verifier,
         code=code,
