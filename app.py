@@ -7,7 +7,7 @@ import redis
 from requests_oauthlib import OAuth2Session
 from flask import Flask, render_template, redirect, request, session
 import werkzeug
-from utils import get_user_details
+from utils import get_oauth2_session, get_refresh_token, get_user_details
 
 app = Flask(__name__)
 app.config.from_pyfile('settings.py')
@@ -20,7 +20,6 @@ app.register_error_handler(404, werkzeug.exceptions.NotFound)
 
 @app.route("/", methods=["GET"])
 def index():
-    app.logger.info(r)
     return render_template("index.html")
 
 
@@ -29,10 +28,10 @@ def login():
     global twitter
     global code_verifier
 
-    twitter = OAuth2Session(app.config.get("CLIENT_ID"),
-                            redirect_uri=app.config.get("REDIRECT_URI"),
-                            scope=["tweet.read", "users.read", "follows.read",
-                                   "offline.access"])
+    twitter = get_oauth2_session(app.config.get("CLIENT_ID"),
+                                 app.config.get("REDIRECT_URI"),
+                                 ["tweet.read", "users.read", "follows.read",
+                                  "offline.access"])
 
     code_verifier = base64.urlsafe_b64encode(os.urandom(30)).decode("utf-8")
     code_verifier = re.sub("[^a-zA-Z0-9]+", "", code_verifier)
@@ -55,14 +54,16 @@ def callback():
     code = request.args.get("code")
 
     token = twitter.fetch_token(
-        token_url="https://api.twitter.com/2/oauth2/token",
+        token_url=app.config.get("TOKEN_URL"),
         client_secret=app.config.get("CLIENT_SECRET"),
         code_verifier=code_verifier,
         code=code,
     )
     st_token = '"{}"'.format(token)
     j_token = json.loads(st_token)
-    r.set("token", j_token)
+    r.set("token", token["access_token"])
 
     user_details = get_user_details(token["access_token"])
-    return f"{user_details}"
+    # refresh_token = get_refresh_token(r, twitter, app.config)
+
+    return f"User:\t{user_details}\nOAuth Token:\t{j_token}"
