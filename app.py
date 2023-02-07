@@ -1,10 +1,7 @@
 import base64
 import hashlib
-import json
 import os
 import re
-import redis
-from requests_oauthlib import OAuth2Session
 from flask import Flask, render_template, redirect, request, session
 import werkzeug
 from utils import get_oauth2_session, get_refresh_token, get_user_details
@@ -12,8 +9,6 @@ from utils import get_oauth2_session, get_refresh_token, get_user_details
 app = Flask(__name__)
 app.config.from_pyfile('settings.py')
 app.secret_key = os.urandom(50)
-
-r = redis.from_url(app.config.get("REDIS_URL"))
 
 app.register_error_handler(404, werkzeug.exceptions.NotFound)
 
@@ -60,32 +55,10 @@ def callback():
         code=code,
     )
 
-    r.set("token", token["access_token"])
     user_details = get_user_details(token["access_token"])
 
-    basic_auth = base64.b64encode(
-        str.encode(f'{app.config.get("CLIENT_ID")}:'
-                   f'{app.config.get("CLIENT_SECRET")}'))
-    basic_auth = \
-        basic_auth.decode('ascii')
+    refresh_token = get_refresh_token(twitter, app.config,
+                                      token["refresh_token"])
 
-    headers = {
-        'Content-Type': "application/x-www-form-urlencoded",
-        'Authorization': f'Basic {basic_auth}'
-    }
-
-    tokens = {"token": token}
-    t = tokens["token"]
-    refreshed_token = twitter.refresh_token(
-        client_id=app.config.get("CLIENT_ID"),
-        client_secret=app.config.get("CLIENT_SECRET"),
-        token_url=app.config.get("TOKEN_URL"),
-        refresh_token=t["refresh_token"],
-        headers=headers
-    )
-
-    tokens.update({"new_token": refreshed_token})
-    # refresh_token = get_refresh_token(r, twitter, app.config)
-
-    return f"User:\t{user_details}\nOAuth Token:\t{token['access_token']}" \
-           f"\nRefreshed token:\t{tokens['new_token']}"
+    return f"User:\t{user_details}\nOAuth Token:\t{token}" \
+           f"\nRefreshed token:\t{refresh_token}"

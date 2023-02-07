@@ -1,4 +1,4 @@
-import json
+import base64
 import requests
 from requests_oauthlib import OAuth2Session
 
@@ -7,23 +7,27 @@ def get_oauth2_session(client_id, redirect_uri, scopes):
     return OAuth2Session(client_id, redirect_uri=redirect_uri, scope=scopes)
 
 
-def get_refresh_token(redis_obj, oauth2_session, config):
-    t = redis_obj.get("token")
+def get_refresh_token(oauth2_session, config, refresh_token):
+    basic_auth = base64.b64encode(
+        str.encode(f'{config.get("CLIENT_ID")}:'
+                   f'{config.get("CLIENT_SECRET")}'))
+    basic_auth = \
+        basic_auth.decode('ascii')
+
+    headers = {
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Authorization': f'Basic {basic_auth}'
+    }
 
     refreshed_token = oauth2_session.refresh_token(
         client_id=config.get("CLIENT_ID"),
         client_secret=config.get("CLIENT_SECRET"),
         token_url=config.get("TOKEN_URL"),
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        params={"grant-type": "refresh_token"},
-        refresh_token=t,
+        headers=headers,
+        refresh_token=refresh_token,
     )
 
-    st_refreshed_token = '"{}"'.format(refreshed_token)
-    j_refreshed_token = json.loads(st_refreshed_token)
-    redis_obj.set("refresh_token", j_refreshed_token)
-
-    return j_refreshed_token
+    return refreshed_token
 
 
 def get_user_details(token):
