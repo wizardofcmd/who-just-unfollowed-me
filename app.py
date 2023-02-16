@@ -3,21 +3,35 @@ import hashlib
 import json
 import os
 import re
-from flask import Flask, render_template, redirect, request, session, url_for
+from flask import Flask, render_template, redirect, request, session
+from flask_login import LoginManager
 import redis
 import werkzeug
+from db_actions.user import User
 from utils import get_oauth2_session, get_refresh_token, get_user_details
 
 app = Flask(__name__)
-app.config.from_pyfile('settings.py')
+app.config.from_pyfile("settings.py")
 app.secret_key = os.urandom(50)
 r = redis.from_url(app.config.get("REDIS_URL"))
+
+# User session management setup
+# https://flask-login.readthedocs.io/en/latest
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+
+@login_manager.user_loader  # Flask-Login helper to retrieve a user from our db
+def load_user(user_id):
+    return User.get(user_id)
+
 
 app.register_error_handler(404, werkzeug.exceptions.NotFound)
 
 
 @app.route("/", methods=["GET"])
 def index():
+    app.logger.info(User.get("1"))
     return render_template("index.html")
 
 

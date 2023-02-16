@@ -1,6 +1,16 @@
 import base64
 import requests
+import psycopg2
 from requests_oauthlib import OAuth2Session
+import settings
+
+
+def get_db_connection():
+    conn = psycopg2.connect(host=settings.HOST,
+                            database=settings.DATABASE,
+                            user=settings.DB_USERNAME,
+                            password=settings.DB_PASSWORD)
+    return conn
 
 
 def get_oauth2_session(client_id, redirect_uri, scopes):
