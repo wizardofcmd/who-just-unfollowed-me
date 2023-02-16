@@ -3,7 +3,7 @@ import hashlib
 import json
 import os
 import re
-from flask import Flask, render_template, redirect, request, session
+from flask import Flask, render_template, redirect, request, session, url_for
 import redis
 import werkzeug
 from utils import get_oauth2_session, get_refresh_token, get_user_details
@@ -57,16 +57,14 @@ def callback():
         code_verifier=code_verifier,
         code=code,
     )
-    
+
     st_token = '"{}"'.format(token)
     j_token = json.loads(st_token)
     r.set("token", j_token)
 
     user_details = get_user_details(token["access_token"])
-
     refresh_token = get_refresh_token(twitter, app.config,
                                       token["refresh_token"])
-    
     st_refreshed_token = '"{}"'.format(refresh_token)
     j_refreshed_token = json.loads(st_refreshed_token)
     r.set("refresh_token", j_refreshed_token)
